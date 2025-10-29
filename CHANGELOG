@@ -1,0 +1,33 @@
+CURRENT STATE:
+    BUGS: .
+    NOTES: .
+
+
+
+
+
+
+---------------- BEFORE INTEGRATION INTO STARK OS ----------------
+
+- Changed alloc/free into "ref" use.
+- Changed each mem interaction into iref.
+- Added heap__sz().
+
+
+
+27/10/2025 > [0.1.2]:
+- Added "heap__" headers.
+- Added ARCH64 cfg to enable 32b compatibility also.
+- Added variable memory access functions (write only then).
+
+
+
+27/10/2025 > [0.1.1]:
+- Made a first real allocator algorithm, code + explanations: BEST-FIT-BET.
+- Added fixed memory access functions.
+
+
+
+23/10/2025 > [0.1.0]:
+- Created allocator.c/.h.
+- Added the demonstration programs.
