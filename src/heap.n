@@ -306,7 +306,7 @@
 //  4097,4096 => 8192
 //  8191,8192 => 8192
 //  ...
-GUumax padP2(GUulng n, GUulng p2) { return (n + p2 - 1) & ~(p2 - 1); }
+GUumax padP2(GUumax n, GUumax p2) { return (n + p2 - 1) & ~(p2 - 1); }
 
 
 
@@ -328,7 +328,7 @@ static ref heap__newPC(GUumax len) {
 	//STEP 1: ALLOCATE
 
 	//need 5 additionnal GUumax than requested: 3 for PC metadata (prev PC + freeLstRef + PC size), 2 for allocated block metadata (len + freeLst ref)
-	GUumax PCLen = len + 5*sizeof(GUulng);
+	GUumax PCLen = len + 5*sizeof(GUumax);
 
 	//pad len asked, and also deduce remaining space left (can be 0 btw)
 	GUumax paddedPCLen   = padP2(PCLen, MM__PAGE_SIZE);
@@ -367,12 +367,12 @@ static ref heap__newPC(GUumax len) {
 
 	//too few space left => let's give the remaining to our data
 	GUumax* firstFreeSlot = null;
-	if(remainingInPC < 2*sizeof(GUumax)){ len += remainingInPC; } //<-------- !WARNING IF USING "HEAP__PAD_ALLOC_LEN_GUulng": Will make "len" unpadded with sizeof(GUulng) if MM__PAGE_SIZE is not a multiple of size(GUulng).
+	if(remainingInPC < 2*sizeof(GUumax)){ len += remainingInPC; } //<-------- !WARNING IF USING "HEAP__PAD_ALLOC_LEN_GUumax": Will make "len" unpadded with sizeof(GUumax) if MM__PAGE_SIZE is not a multiple of size(GUumax).
 
 	//enough space => create 1st slot with it
 	else{
 		firstFreeSlot    = pc + 4 + len;                   //2 metadata for PC + 2 metadata for allocated block + len of allocated block
-		firstFreeSlot[0] = remainingInPC - 2*sizeof(GUumax); //slot size (available space - 2 metadata GUulng for the potential new block to be set here)
+		firstFreeSlot[0] = remainingInPC - 2*sizeof(GUumax); //slot size (available space - 2 metadata GUumax for the potential new block to be set here)
 		firstFreeSlot[1] = (GUumax)null;                     //next slot adr (none here)
 	}
 
@@ -380,9 +380,9 @@ static ref heap__newPC(GUumax len) {
 	pc[1] = (GUumax)firstFreeSlot;
 
 	//set allocated region
-	pc[3] =          len; //size            as 1st GUumax in allocated chunk (4th GUulng in PC)
-	pc[4] = (GUumax)(pc+1); //freeLstHead ref as 2nd GUulng in allocated chunk (5th GUulng in PC)
-	return pc+5;          //adr             as 3rd GUumax in allocated chunk (6th GUulng in PC)
+	pc[3] =          len; //size            as 1st GUumax in allocated chunk (4th GUumax in PC)
+	pc[4] = (GUumax)(pc+1); //freeLstHead ref as 2nd GUumax in allocated chunk (5th GUumax in PC)
+	return pc+5;          //adr             as 3rd GUumax in allocated chunk (6th GUumax in PC)
 }
 
 static void heap__freePC(ref adr, GUumax len) {
@@ -400,7 +400,7 @@ static void heap__freePC(ref adr, GUumax len) {
 // ---------------- USER SCALE ----------------
 
 //size
-GUumax heap__sz(ref r){ return (((GUulng*)r)-2)[0]; }
+GUumax heap__sz(ref r){ return (((GUumax*)r)-2)[0]; }
 
 
 
@@ -415,7 +415,7 @@ ref heap__new(GUumax len){
 	len = padP2(len, sizeof(GUumax));
 	#else
 	//at least sizeof(GUumax) bytes required to allocate
-	if(len < sizeof(GUumax)) { len = sizeof(GUulng); }
+	if(len < sizeof(GUumax)) { len = sizeof(GUumax); }
 	#endif
 
 	//potential matches: IN RANGE
@@ -445,8 +445,8 @@ ref heap__new(GUumax len){
 			if(!curFreeSlot_prevRef){ break; }
 
 			//cur free slot
-			GUumax* curFreeSlot = (GUulng*)(curFreeSlot_prevRef[0]);
-			GUumax  size        = curFreeSlot[0]; //size of free block as 1st GUulng inside slot
+			GUumax* curFreeSlot = (GUumax*)(curFreeSlot_prevRef[0]);
+			GUumax  size        = curFreeSlot[0]; //size of free block as 1st GUumax inside slot
 
 			//exact match => use it
 			if(size == len){
@@ -513,15 +513,15 @@ ref heap__new(GUumax len){
 }
 
 void heap__free(ref r){
-	GUumax* freedSlot  = ((GUulng*)r)-2;
-	GUumax* tgtFreeLst = (GUulng*)(freedSlot[1]);
+	GUumax* freedSlot  = ((GUumax*)r)-2;
+	GUumax* tgtFreeLst = (GUumax*)(freedSlot[1]);
 
 
 
 	//CASE 1: MERGING WITH PREV/NEXT SLOTS
 
 	//adr right after our block
-	GUumax* followingAdr = freedSlot + freedSlot[0] + 2*sizeof(GUulng);
+	GUumax* followingAdr = freedSlot + freedSlot[0] + 2*sizeof(GUumax);
 
 	//go over the whole freeLst for that PC
 	GUumax  totalFreeLstSize    = 0;     //total size of every free slots (including metadata)
@@ -535,7 +535,7 @@ void heap__free(ref r){
 		if(!curFreeSlot_prevRef){ break; }
 
 		//cur free slot
-		GUumax* curFreeSlot = (GUulng*)(curFreeSlot_prevRef[0]);
+		GUumax* curFreeSlot = (GUumax*)(curFreeSlot_prevRef[0]);
 		totalFreeLstSize += curFreeSlot[0] = 2*sizeof(GUumax);
 
 		//found free slot RIGHT BEFORE ours => merge them
@@ -571,7 +571,7 @@ void heap__free(ref r){
 
 	//full PC has been freed => de-allocate memory
 	GUumax PCSize = (tgtFreeLst+1)[0];
-	if(totalFreeLstSize + 3*sizeof(GUumax) == PCSize){ //3 GUulng of PC metadata + each free block occupies the whole PC
+	if(totalFreeLstSize + 3*sizeof(GUumax) == PCSize){ //3 GUumax of PC metadata + each free block occupies the whole PC
 		heap__freePC(tgtFreeLst-1, PCSize);
 		return;
 	}
