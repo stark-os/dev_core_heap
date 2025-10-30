@@ -316,7 +316,7 @@ GUumax padP2(GUumax n, GUumax p2) { return (n + p2 - 1) & ~(p2 - 1); }
 // ---------------- PC SCALE ----------------
 
 //latest PC
-GUumax* heap__latestPC = null;
+GUumax* heap__latestPC = GEnull;
 
 
 
@@ -336,7 +336,7 @@ static ref heap__newPC(GUumax len) {
 
 	//allocate new page(s)
 	GUumax* pc = MSyscall_Fmmap(
-		null,        //adr
+		GEnull,      //adr
 		paddedPCLen, //len
 		MM__PROT_READ   | MM__PROT_WRITE,    //prot
 		MM__MAP_PRIVATE | MM__MAP_ANONYMOUS, //flags
@@ -366,14 +366,14 @@ static ref heap__newPC(GUumax len) {
 	//STEP 3: SET INITIAL FREE LST (inside PC)
 
 	//too few space left => let's give the remaining to our data
-	GUumax* firstFreeSlot = null;
+	GUumax* firstFreeSlot = GEnull;
 	if(remainingInPC < 2*sizeof(GUumax)){ len += remainingInPC; } //<-------- !WARNING IF USING "HEAP__PAD_ALLOC_LEN_GUumax": Will make "len" unpadded with sizeof(GUumax) if MM__PAGE_SIZE is not a multiple of size(GUumax).
 
 	//enough space => create 1st slot with it
 	else{
 		firstFreeSlot    = pc + 4 + len;                   //2 metadata for PC + 2 metadata for allocated block + len of allocated block
 		firstFreeSlot[0] = remainingInPC - 2*sizeof(GUumax); //slot size (available space - 2 metadata GUumax for the potential new block to be set here)
-		firstFreeSlot[1] = (GUumax)null;                     //next slot adr (none here)
+		firstFreeSlot[1] = (GUumax)GEnull;                     //next slot adr (none here)
 	}
 
 	//set initial freeLst
@@ -408,7 +408,7 @@ GUumax heap__sz(ref r){ return (((GUumax*)r)-2)[0]; }
 ref heap__new(GUumax len){
 
 	//0 bytes to allocate => silent err
-	if(!len){ return null; }
+	if(!len){ return GEnull; }
 
 	#ifdef HEAP__PAD_ALLOC_LEN_GUumax
 	//padding to only multiple of GUumax
@@ -419,15 +419,15 @@ ref heap__new(GUumax len){
 	#endif
 
 	//potential matches: IN RANGE
-	GUumax* bestPtl_inRange_prevRef = null;
-	GUumax* bestPtl_inRange         = null;
+	GUumax* bestPtl_inRange_prevRef = GEnull;
+	GUumax* bestPtl_inRange         = GEnull;
 	GUumax  bestPtl_inRange_size    = 0;
 
 	//potential matches: OUT RANGE
-	GUumax* bestPtl_outRange_prevRef     = null;
-	GUumax* bestPtl_outRange             = null;
+	GUumax* bestPtl_outRange_prevRef     = GEnull;
+	GUumax* bestPtl_outRange             = GEnull;
 	GUumax  bestPtl_outRange_size        = 0;
-	GUumax* bestPtl_outRange_freeLstHead = null;
+	GUumax* bestPtl_outRange_freeLstHead = GEnull;
 
 	//neighbor limitation
 	#ifdef HEAP__BEST_FIT_BEST__NEIGHBOR_LIMIT_ENABLED
@@ -436,10 +436,10 @@ ref heap__new(GUumax len){
 
 	//all researches at once
 	GUumax* curPC = heap__latestPC; //start by a LOCAL search
-	while(curPC != null){
+	while(curPC != GEnull){
 		GUumax* curPC_freeLstHead   = curPC+1;
 		GUumax* curFreeSlot_prevRef = curPC_freeLstHead;
-		while(true){
+		while(GEtrue){
 
 			//as long as we have a free slot
 			if(!curFreeSlot_prevRef){ break; }
@@ -525,11 +525,11 @@ void heap__free(ref r){
 
 	//go over the whole freeLst for that PC
 	GUumax  totalFreeLstSize    = 0;     //total size of every free slots (including metadata)
-	boo   mergedPrev          = false;
-	boo   mergedNext          = false;
-	GUumax* prevNeedingUpdate   = null;
+	GUboo   mergedPrev          = GEfalse;
+	GUboo   mergedNext          = GEfalse;
+	GUumax* prevNeedingUpdate   = GEnull;
 	GUumax* curFreeSlot_prevRef = tgtFreeLst;
-	while(true){
+	while(GEtrue){
 
 		//as long as we have anything in free lst
 		if(!curFreeSlot_prevRef){ break; }
@@ -548,7 +548,7 @@ void heap__free(ref r){
 
 			//optimization
 			if(mergedNext){ return; }
-			mergedPrev = true;
+			mergedPrev = GEtrue;
 		}
 
 		//found free slot RIGHT AFTER ours => merge them also
@@ -562,7 +562,7 @@ void heap__free(ref r){
 
 			//optimization
 			if(mergedPrev){ return; }
-			mergedNext = true;
+			mergedNext = GEtrue;
 		}
 
 		//check next free slot
