@@ -347,7 +347,7 @@ static ref heap__newPC(GUumax len) {
 	//system refuses => stop program
 	if(pc == MM__MAP_FAILED){
 		MSyscall_Fwrite(STDERR, "[ ERROR ] > Unable to allocate more memory for process.", 59);
-		MSyscall_Fexit(ERR__SYSTEM_REFUSE_ALLOC);
+		MSyscall_Fexit(EXIT__SYSTEM_REFUSE_ALLOC);
 	}
 
 
@@ -388,7 +388,7 @@ static ref heap__newPC(GUumax len) {
 static void heap__freePC(ref adr, GUumax len) {
 	if(MSyscall_Fmunmap(adr, len) == -1){
 		MSyscall_Fwrite(STDERR, "[ ERROR ] > Unable to de-allocate memory from process.", 54);
-		MSyscall_Fexit(ERR__SYSTEM_REFUSE_FREE);
+		MSyscall_Fexit(EXIT__SYSTEM_REFUSE_FREE);
 	}
 }
 
@@ -626,7 +626,7 @@ GUu8 heap__safe_ru8(iref ir){
 		#endif
 
 		//spc err
-		MSyscall_Fexit(ERR__ILLEGAL_HEAP_RU8);
+		MSyscall_Fexit(EXIT__ILLEGAL_HEAP_RU8);
 	}
 	return heap__unsafe_ru8(ir);
 }
@@ -640,7 +640,7 @@ GUu16 heap__safe_ru16(iref ir){
 		#endif
 
 		//spc err
-		MSyscall_Fexit(ERR__ILLEGAL_HEAP_RU16);
+		MSyscall_Fexit(EXIT__ILLEGAL_HEAP_RU16);
 	}
 	return heap__unsafe_ru16(ir);
 }
@@ -654,7 +654,7 @@ GUu32 heap__safe_ru32(iref ir){
 		#endif
 
 		//spc err
-		MSyscall_Fexit(ERR__ILLEGAL_HEAP_RU32);
+		MSyscall_Fexit(EXIT__ILLEGAL_HEAP_RU32);
 	}
 	return heap__unsafe_ru32(ir);
 }
@@ -669,7 +669,7 @@ GUu64 heap__safe_ru64(iref ir){
 		#endif
 
 		//spc err
-		MSyscall_Fexit(ERR__ILLEGAL_HEAP_RU64);
+		MSyscall_Fexit(EXIT__ILLEGAL_HEAP_RU64);
 	}
 	return heap__unsafe_ru64(ir);
 }
@@ -687,7 +687,7 @@ void heap__safe_wu8(iref ir, GUu8 e){
 		#endif
 
 		//spc err
-		MSyscall_Fexit(ERR__ILLEGAL_HEAP_WU8);
+		MSyscall_Fexit(EXIT__ILLEGAL_HEAP_WU8);
 	}
 	return heap__unsafe_wu8(ir, e);
 }
@@ -701,7 +701,7 @@ void heap__safe_wu16(iref ir, GUu16 e){
 		#endif
 
 		//spc err
-		MSyscall_Fexit(ERR__ILLEGAL_HEAP_WU16);
+		MSyscall_Fexit(EXIT__ILLEGAL_HEAP_WU16);
 	}
 	return heap__unsafe_wu16(ir, e);
 }
@@ -715,7 +715,7 @@ void heap__safe_wu32(iref ir, GUu32 e){
 		#endif
 
 		//spc err
-		MSyscall_Fexit(ERR__ILLEGAL_HEAP_WU32);
+		MSyscall_Fexit(EXIT__ILLEGAL_HEAP_WU32);
 	}
 	return heap__unsafe_wu32(ir, e);
 }
@@ -730,7 +730,7 @@ void heap__safe_wu64(iref ir, GUu64 e){
 		#endif
 
 		//spc err
-		MSyscall_Fexit(ERR__ILLEGAL_HEAP_WU64);
+		MSyscall_Fexit(EXIT__ILLEGAL_HEAP_WU64);
 	}
 	return heap__unsafe_wu64(ir, e);
 }
