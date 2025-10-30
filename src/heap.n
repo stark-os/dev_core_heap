@@ -271,9 +271,9 @@
     Let's Code !                                  By I.A..
 ******************************************************************************************
 
-    LICENCE :
+    LICENSE:
 
-    C_Allocator
+    stark-os/dev/core/heap
     Copyright (C) 2025 Sebastien SILVANO
 
     This library is free software; you can redistribute it and/or
