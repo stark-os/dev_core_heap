@@ -233,15 +233,15 @@
     |                                                                                                           |
     | X] PC COMPOSITION                                                                                         |
     |                                                                                                           |
-    | Each PC starts with 2 ulng of metadata:                                                                   |
+    | Each PC starts with 2 GUumax of metadata:                                                                 |
     ||
     ||
     ||
     =============================================================================================================
 */
 
-//pad every allocation request into a multiple of sizeof(ulng)
-#define HEAP__PAD_ALLOC_LEN_ULNG
+//pad every allocation request into a multiple of sizeof(GUumax)
+#define HEAP__PAD_ALLOC_LEN_GUULNG
 
 //best-fit-bet !WARNING: CHECK EXPLANATIONS ABOVE BEFORE MODIFYING
 #define HEAP__BEST_FIT_BET__THRESHOLD      8
@@ -306,7 +306,7 @@
 //  4097,4096 => 8192
 //  8191,8192 => 8192
 //  ...
-ulng padP2(ulng n, ulng p2) { return (n + p2 - 1) & ~(p2 - 1); }
+GUumax padP2(GUulng n, GUulng p2) { return (n + p2 - 1) & ~(p2 - 1); }
 
 
 
@@ -316,26 +316,26 @@ ulng padP2(ulng n, ulng p2) { return (n + p2 - 1) & ~(p2 - 1); }
 // ---------------- PC SCALE ----------------
 
 //latest PC
-ulng* heap__latestPC = null;
+GUumax* heap__latestPC = null;
 
 
 
 //new - free PC
-static ref heap__newPC(ulng len) {
+static ref heap__newPC(GUumax len) {
 
 
 
 	//STEP 1: ALLOCATE
 
-	//need 5 additionnal ulng than requested: 3 for PC metadata (prev PC + freeLstRef + PC size), 2 for allocated block metadata (len + freeLst ref)
-	ulng PCLen = len + 5*sizeof(ulng);
+	//need 5 additionnal GUumax than requested: 3 for PC metadata (prev PC + freeLstRef + PC size), 2 for allocated block metadata (len + freeLst ref)
+	GUumax PCLen = len + 5*sizeof(GUulng);
 
 	//pad len asked, and also deduce remaining space left (can be 0 btw)
-	ulng paddedPCLen   = padP2(PCLen, MM__PAGE_SIZE);
-	ulng remainingInPC = paddedPCLen - PCLen;
+	GUumax paddedPCLen   = padP2(PCLen, MM__PAGE_SIZE);
+	GUumax remainingInPC = paddedPCLen - PCLen;
 
 	//allocate new page(s)
-	ulng* pc = syscall_mmap(
+	GUumax* pc = MSyscall_Fmmap(
 		null,        //adr
 		paddedPCLen, //len
 		MM__PROT_READ   | MM__PROT_WRITE,    //prot
@@ -346,8 +346,8 @@ static ref heap__newPC(ulng len) {
 
 	//system refuses => stop program
 	if(pc == MM__MAP_FAILED){
-		syscall_write(STDERR, "[ ERROR ] > Unable to allocate more memory for process.", 59);
-		syscall_exit(ERR__SYSTEM_REFUSE_ALLOC);
+		MSyscall_Fwrite(STDERR, "[ ERROR ] > Unable to allocate more memory for process.", 59);
+		MSyscall_Fexit(ERR__SYSTEM_REFUSE_ALLOC);
 	}
 
 
@@ -357,8 +357,8 @@ static ref heap__newPC(ulng len) {
 	//save PC size also
 	pc[2] = paddedPCLen;
 
-	//chain with other PCs: 1st ulng of PC contains prev PC adr
-	pc[0]          = (ulng)heap__latestPC;
+	//chain with other PCs: 1st GUumax of PC contains prev PC adr
+	pc[0]          = (GUumax)heap__latestPC;
 	heap__latestPC = pc;                   //update latestPC, now we are working on this new one in priority now
 
 
@@ -366,29 +366,29 @@ static ref heap__newPC(ulng len) {
 	//STEP 3: SET INITIAL FREE LST (inside PC)
 
 	//too few space left => let's give the remaining to our data
-	ulng* firstFreeSlot = null;
-	if(remainingInPC < 2*sizeof(ulng)){ len += remainingInPC; } //<-------- !WARNING IF USING "HEAP__PAD_ALLOC_LEN_ULNG": Will make "len" unpadded with sizeof(ulng) if MM__PAGE_SIZE is not a multiple of size(ulng).
+	GUumax* firstFreeSlot = null;
+	if(remainingInPC < 2*sizeof(GUumax)){ len += remainingInPC; } //<-------- !WARNING IF USING "HEAP__PAD_ALLOC_LEN_GUulng": Will make "len" unpadded with sizeof(GUulng) if MM__PAGE_SIZE is not a multiple of size(GUulng).
 
 	//enough space => create 1st slot with it
 	else{
 		firstFreeSlot    = pc + 4 + len;                   //2 metadata for PC + 2 metadata for allocated block + len of allocated block
-		firstFreeSlot[0] = remainingInPC - 2*sizeof(ulng); //slot size (available space - 2 metadata ulng for the potential new block to be set here)
-		firstFreeSlot[1] = (ulng)null;                     //next slot adr (none here)
+		firstFreeSlot[0] = remainingInPC - 2*sizeof(GUumax); //slot size (available space - 2 metadata GUulng for the potential new block to be set here)
+		firstFreeSlot[1] = (GUumax)null;                     //next slot adr (none here)
 	}
 
 	//set initial freeLst
-	pc[1] = (ulng)firstFreeSlot;
+	pc[1] = (GUumax)firstFreeSlot;
 
 	//set allocated region
-	pc[3] =          len; //size            as 1st ulng in allocated chunk (4th ulng in PC)
-	pc[4] = (ulng)(pc+1); //freeLstHead ref as 2nd ulng in allocated chunk (5th ulng in PC)
-	return pc+5;          //adr             as 3rd ulng in allocated chunk (6th ulng in PC)
+	pc[3] =          len; //size            as 1st GUumax in allocated chunk (4th GUulng in PC)
+	pc[4] = (GUumax)(pc+1); //freeLstHead ref as 2nd GUulng in allocated chunk (5th GUulng in PC)
+	return pc+5;          //adr             as 3rd GUumax in allocated chunk (6th GUulng in PC)
 }
 
-static void heap__freePC(ref adr, ulng len) {
-	if(syscall_munmap(adr, len) == -1){
-		syscall_write(STDERR, "[ ERROR ] > Unable to de-allocate memory from process.", 54);
-		syscall_exit(ERR__SYSTEM_REFUSE_FREE);
+static void heap__freePC(ref adr, GUumax len) {
+	if(MSyscall_Fmunmap(adr, len) == -1){
+		MSyscall_Fwrite(STDERR, "[ ERROR ] > Unable to de-allocate memory from process.", 54);
+		MSyscall_Fexit(ERR__SYSTEM_REFUSE_FREE);
 	}
 }
 
@@ -400,58 +400,58 @@ static void heap__freePC(ref adr, ulng len) {
 // ---------------- USER SCALE ----------------
 
 //size
-ulng heap__sz(ref r){ return (((ulng*)r)-2)[0]; }
+GUumax heap__sz(ref r){ return (((GUulng*)r)-2)[0]; }
 
 
 
 //new - free
-ref heap__new(ulng len){
+ref heap__new(GUumax len){
 
 	//0 bytes to allocate => silent err
 	if(!len){ return null; }
 
-	#ifdef HEAP__PAD_ALLOC_LEN_ULNG
-	//padding to only multiple of ulng
-	len = padP2(len, sizeof(ulng));
+	#ifdef HEAP__PAD_ALLOC_LEN_GUumax
+	//padding to only multiple of GUumax
+	len = padP2(len, sizeof(GUumax));
 	#else
-	//at least sizeof(ulng) bytes required to allocate
-	if(len < sizeof(ulng)) { len = sizeof(ulng); }
+	//at least sizeof(GUumax) bytes required to allocate
+	if(len < sizeof(GUumax)) { len = sizeof(GUulng); }
 	#endif
 
 	//potential matches: IN RANGE
-	ulng* bestPtl_inRange_prevRef = null;
-	ulng* bestPtl_inRange         = null;
-	ulng  bestPtl_inRange_size    = 0;
+	GUumax* bestPtl_inRange_prevRef = null;
+	GUumax* bestPtl_inRange         = null;
+	GUumax  bestPtl_inRange_size    = 0;
 
 	//potential matches: OUT RANGE
-	ulng* bestPtl_outRange_prevRef     = null;
-	ulng* bestPtl_outRange             = null;
-	ulng  bestPtl_outRange_size        = 0;
-	ulng* bestPtl_outRange_freeLstHead = null;
+	GUumax* bestPtl_outRange_prevRef     = null;
+	GUumax* bestPtl_outRange             = null;
+	GUumax  bestPtl_outRange_size        = 0;
+	GUumax* bestPtl_outRange_freeLstHead = null;
 
 	//neighbor limitation
 	#ifdef HEAP__BEST_FIT_BEST__NEIGHBOR_LIMIT_ENABLED
-	ulng PCnbr = 0;
+	GUumax PCnbr = 0;
 	#endif
 
 	//all researches at once
-	ulng* curPC = heap__latestPC; //start by a LOCAL search
+	GUumax* curPC = heap__latestPC; //start by a LOCAL search
 	while(curPC != null){
-		ulng* curPC_freeLstHead   = curPC+1;
-		ulng* curFreeSlot_prevRef = curPC_freeLstHead;
+		GUumax* curPC_freeLstHead   = curPC+1;
+		GUumax* curFreeSlot_prevRef = curPC_freeLstHead;
 		while(true){
 
 			//as long as we have a free slot
 			if(!curFreeSlot_prevRef){ break; }
 
 			//cur free slot
-			ulng* curFreeSlot = (ulng*)(curFreeSlot_prevRef[0]);
-			ulng  size        = curFreeSlot[0]; //size of free block as 1st ulng inside slot
+			GUumax* curFreeSlot = (GUulng*)(curFreeSlot_prevRef[0]);
+			GUumax  size        = curFreeSlot[0]; //size of free block as 1st GUulng inside slot
 
 			//exact match => use it
 			if(size == len){
 				curFreeSlot_prevRef[0] = curFreeSlot[1];          //disconnect slot from freeLst, <=> prevSlot->nxt = curSlot->nxt
-				curFreeSlot[1]         = (ulng)curPC_freeLstHead; //set freeLstHead in newly allocated block
+				curFreeSlot[1]         = (GUumax)curPC_freeLstHead; //set freeLstHead in newly allocated block
 				return curFreeSlot+2;                             //direct return adr, no need to set the size (exact match)
 			}
 
@@ -478,20 +478,20 @@ ref heap__new(ulng len){
 				}
 			}
 
-			//next free slot adr as 2nd ulng inside slot
-			curFreeSlot_prevRef = (ulng*)(curFreeSlot[1]);
+			//next free slot adr as 2nd GUumax inside slot
+			curFreeSlot_prevRef = (GUumax*)(curFreeSlot[1]);
 		}
 
 		//in-range slot found in that page => use it
 		if(bestPtl_inRange){
 			bestPtl_inRange_prevRef[0] = bestPtl_inRange[1];      //disconnect slot from freeLst, <=> prevSlot->nxt = bestPtl_inRangeSlot->nxt
 			bestPtl_inRange[0]         = bestPtl_inRange_size;    //set size        in newly allocated block
-			bestPtl_inRange[1]         = (ulng)curPC_freeLstHead; //set freeLstHead in newly allocated block
+			bestPtl_inRange[1]         = (GUumax)curPC_freeLstHead; //set freeLstHead in newly allocated block
 			return bestPtl_inRange+2;
 		}
 
 		//go to previous PC (neighbor check)
-		curPC = (ulng*)curPC[0];
+		curPC = (GUumax*)curPC[0];
 
 		//limit reached
 		#ifdef HEAP__BEST_FIT_BEST__NEIGHBOR_LIMIT_ENABLED
@@ -504,7 +504,7 @@ ref heap__new(ulng len){
 	if(bestPtl_outRange){
 		bestPtl_outRange_prevRef[0] = bestPtl_outRange[1];                //disconnect from freeLst, <=> prevSlot->nxt = bestPtl_outRangeSlot->nxt
 		bestPtl_outRange[0]         = bestPtl_outRange_size;              //set size        in newly allocated block
-		bestPtl_outRange[1]         = (ulng)bestPtl_outRange_freeLstHead; //set freeLstHead in newly allocated block
+		bestPtl_outRange[1]         = (GUumax)bestPtl_outRange_freeLstHead; //set freeLstHead in newly allocated block
 		return bestPtl_outRange+2;
 	}
 
@@ -513,38 +513,38 @@ ref heap__new(ulng len){
 }
 
 void heap__free(ref r){
-	ulng* freedSlot  = ((ulng*)r)-2;
-	ulng* tgtFreeLst = (ulng*)(freedSlot[1]);
+	GUumax* freedSlot  = ((GUulng*)r)-2;
+	GUumax* tgtFreeLst = (GUulng*)(freedSlot[1]);
 
 
 
 	//CASE 1: MERGING WITH PREV/NEXT SLOTS
 
 	//adr right after our block
-	ulng* followingAdr = freedSlot + freedSlot[0] + 2*sizeof(ulng);
+	GUumax* followingAdr = freedSlot + freedSlot[0] + 2*sizeof(GUulng);
 
 	//go over the whole freeLst for that PC
-	ulng  totalFreeLstSize    = 0;     //total size of every free slots (including metadata)
+	GUumax  totalFreeLstSize    = 0;     //total size of every free slots (including metadata)
 	boo   mergedPrev          = false;
 	boo   mergedNext          = false;
-	ulng* prevNeedingUpdate   = null;
-	ulng* curFreeSlot_prevRef = tgtFreeLst;
+	GUumax* prevNeedingUpdate   = null;
+	GUumax* curFreeSlot_prevRef = tgtFreeLst;
 	while(true){
 
 		//as long as we have anything in free lst
 		if(!curFreeSlot_prevRef){ break; }
 
 		//cur free slot
-		ulng* curFreeSlot = (ulng*)(curFreeSlot_prevRef[0]);
-		totalFreeLstSize += curFreeSlot[0] = 2*sizeof(ulng);
+		GUumax* curFreeSlot = (GUulng*)(curFreeSlot_prevRef[0]);
+		totalFreeLstSize += curFreeSlot[0] = 2*sizeof(GUumax);
 
 		//found free slot RIGHT BEFORE ours => merge them
-		if(curFreeSlot + curFreeSlot[0] + 2*sizeof(ulng) == freedSlot){
-			curFreeSlot[0] += freedSlot[0] + 2*sizeof(ulng); //add our complete freedSlot as raw available data in curFreeSlot
+		if(curFreeSlot + curFreeSlot[0] + 2*sizeof(GUumax) == freedSlot){
+			curFreeSlot[0] += freedSlot[0] + 2*sizeof(GUumax); //add our complete freedSlot as raw available data in curFreeSlot
 
 			//VERY IMPORTANT !!! If having both merge prev & after, freedSlot must be updated so that we will merge the prevMergedSlot with the next one.
 			freedSlot = curFreeSlot;
-			if(prevNeedingUpdate){ prevNeedingUpdate[0] = (ulng)curFreeSlot; } //also, the prevRef that has been updated must be updated once more to the even-before chunk (=current one) !
+			if(prevNeedingUpdate){ prevNeedingUpdate[0] = (GUumax)curFreeSlot; } //also, the prevRef that has been updated must be updated once more to the even-before chunk (=current one) !
 
 			//optimization
 			if(mergedNext){ return; }
@@ -553,9 +553,9 @@ void heap__free(ref r){
 
 		//found free slot RIGHT AFTER ours => merge them also
 		else if(followingAdr == curFreeSlot){
-			freedSlot[0]          += curFreeSlot[0] + 2*sizeof(ulng); //add complete curFreeSlot as raw available data in our freedSlot
+			freedSlot[0]          += curFreeSlot[0] + 2*sizeof(GUumax); //add complete curFreeSlot as raw available data in our freedSlot
 			freedSlot[1]           = curFreeSlot[1];                  //also take the "next" field from curFreeSlot
-			curFreeSlot_prevRef[0] = (ulng)freedSlot;                 //<=> prevSlot->nxt = curSlot
+			curFreeSlot_prevRef[0] = (GUumax)freedSlot;                 //<=> prevSlot->nxt = curSlot
 
 			//keep aside the prevRef in case the following freeSlot is RIGHT BEFORE the freed one => we will have to update prevRef one more time
 			prevNeedingUpdate = curFreeSlot_prevRef;
@@ -566,12 +566,12 @@ void heap__free(ref r){
 		}
 
 		//check next free slot
-		curFreeSlot_prevRef = (ulng*)(curFreeSlot[1]);
+		curFreeSlot_prevRef = (GUumax*)(curFreeSlot[1]);
 	}
 
 	//full PC has been freed => de-allocate memory
-	ulng PCSize = (tgtFreeLst+1)[0];
-	if(totalFreeLstSize + 3*sizeof(ulng) == PCSize){ //3 ulng of PC metadata + each free block occupies the whole PC
+	GUumax PCSize = (tgtFreeLst+1)[0];
+	if(totalFreeLstSize + 3*sizeof(GUumax) == PCSize){ //3 GUulng of PC metadata + each free block occupies the whole PC
 		heap__freePC(tgtFreeLst-1, PCSize);
 		return;
 	}
@@ -584,10 +584,10 @@ void heap__free(ref r){
 	//CASE 2: CREATE INDEPENDANT SLOT (unmerged)
 
 	//set free slot data (size is unchanged)
-	freedSlot[1] = (ulng)(tgtFreeLst); //<=> curSlot->nxt = freeLstHead
+	freedSlot[1] = (GUumax)(tgtFreeLst); //<=> curSlot->nxt = freeLstHead
 
 	//add slot to free lst, as 1st element of lst (which means it will be accessed in priority in further allocations btw)
-	tgtFreeLst[0] = (ulng)(freedSlot); //<=> freeLstHead = curSlot
+	tgtFreeLst[0] = (GUumax)(freedSlot); //<=> freeLstHead = curSlot
 }
 
 
@@ -598,78 +598,78 @@ void heap__free(ref r){
 // ---------------- MEMORY ACCESS ----------------
 
 //unsafe: read
-u8  heap__unsafe_ru8( iref ir){ return ((u8*)(  ((ubyt*)ir.base)+ ir.offset ))[0]; }
-u16 heap__unsafe_ru16(iref ir){ return ((u16*)( ((ubyt*)ir.base)+ ir.offset ))[0]; }
-u32 heap__unsafe_ru32(iref ir){ return ((u32*)( ((ubyt*)ir.base)+ ir.offset ))[0]; }
+GUu8  heap__unsafe_ru8( iref ir){ return ((GUu8*)(  ((GUu8*)ir.base)+ ir.offset ))[0]; }
+GUu16 heap__unsafe_ru16(iref ir){ return ((GUu16*)( ((GUu8*)ir.base)+ ir.offset ))[0]; }
+GUu32 heap__unsafe_ru32(iref ir){ return ((GUu32*)( ((GUu8*)ir.base)+ ir.offset ))[0]; }
 #ifdef ARCH64
-u64 heap__unsafe_ru64(iref ir){ return ((u64*)( ((ubyt*)ir.base)+ ir.offset ))[0]; }
+GUu64 heap__unsafe_ru64(iref ir){ return ((GUu64*)( ((GUu8*)ir.base)+ ir.offset ))[0]; }
 #endif
 
 
 //unsafe: write
-void heap__unsafe_wu8( iref ir, u8  e){ ((u8*)(  ((ubyt*)ir.base)+ ir.offset ))[0] = e; }
-void heap__unsafe_wu16(iref ir, u16 e){ ((u16*)( ((ubyt*)ir.base)+ ir.offset ))[0] = e; }
-void heap__unsafe_wu32(iref ir, u32 e){ ((u32*)( ((ubyt*)ir.base)+ ir.offset ))[0] = e; }
+void heap__unsafe_wu8( iref ir, GUu8  e){ ((GUu8*)(  ((GUu8*)ir.base)+ ir.offset ))[0] = e; }
+void heap__unsafe_wu16(iref ir, GUu16 e){ ((GUu16*)( ((GUu8*)ir.base)+ ir.offset ))[0] = e; }
+void heap__unsafe_wu32(iref ir, GUu32 e){ ((GUu32*)( ((GUu8*)ir.base)+ ir.offset ))[0] = e; }
 #ifdef ARCH64
-void heap__unsafe_wu64(iref ir, u64 e){ ((u64*)( ((ubyt*)ir.base)+ ir.offset ))[0] = e; }
+void heap__unsafe_wu64(iref ir, GUu64 e){ ((GUu64*)( ((GUu8*)ir.base)+ ir.offset ))[0] = e; }
 #endif
 
 
 
 //safe: read
-u8 heap__safe_ru8(iref ir){
-	if(ir.offset > heap__sz(ir.base)){ //seems a bit stupid to make sizeof(u8), so used literal "1"
+GUu8 heap__safe_ru8(iref ir){
+	if(ir.offset > heap__sz(ir.base)){ //seems a bit stupid to make sizeof(GUu8), so used literal "1"
 
 		//optl output
 		#ifdef HEAP__ILLEGAL_ACCESS_OUTPUT
-		syscall_write(STDERR, "[ ERROR ] > Illegal read U8 from heap.\n", 39);
+		MSyscall_Fwrite(STDERR, "[ ERROR ] > Illegal read U8 from heap.\n", 39);
 		#endif
 
 		//spc err
-		syscall_exit(ERR__ILLEGAL_HEAP_RU8);
+		MSyscall_Fexit(ERR__ILLEGAL_HEAP_RU8);
 	}
 	return heap__unsafe_ru8(ir);
 }
 
-u16 heap__safe_ru16(iref ir){
+GUu16 heap__safe_ru16(iref ir){
 	if(ir.offset+2 > heap__sz(ir.base)){ //seems a bit stupid to make sizeof(u16), so used literal "2"
 
 		//optl output
 		#ifdef HEAP__ILLEGAL_ACCESS_OUTPUT
-		syscall_write(STDERR, "[ ERROR ] > Illegal read U16 from heap.\n", 40);
+		MSyscall_Fwrite(STDERR, "[ ERROR ] > Illegal read U16 from heap.\n", 40);
 		#endif
 
 		//spc err
-		syscall_exit(ERR__ILLEGAL_HEAP_RU16);
+		MSyscall_Fexit(ERR__ILLEGAL_HEAP_RU16);
 	}
 	return heap__unsafe_ru16(ir);
 }
 
-u32 heap__safe_ru32(iref ir){
+GUu32 heap__safe_ru32(iref ir){
 	if(ir.offset+4 > heap__sz(ir.base)){ //seems a bit stupid to make sizeof(u32), so used literal "4"
 
 		//optl output
 		#ifdef HEAP__ILLEGAL_ACCESS_OUTPUT
-		syscall_write(STDERR, "[ ERROR ] > Illegal read U32 from heap.\n", 40);
+		MSyscall_Fwrite(STDERR, "[ ERROR ] > Illegal read U32 from heap.\n", 40);
 		#endif
 
 		//spc err
-		syscall_exit(ERR__ILLEGAL_HEAP_RU32);
+		MSyscall_Fexit(ERR__ILLEGAL_HEAP_RU32);
 	}
 	return heap__unsafe_ru32(ir);
 }
 
 #ifdef ARCH64
-u64 heap__safe_ru64(iref ir){
+GUu64 heap__safe_ru64(iref ir){
 	if(ir.offset+8 > heap__sz(ir.base)){ //seems a bit stupid to make sizeof(u64), so used literal "8"
 
 		//optl output
 		#ifdef HEAP__ILLEGAL_ACCESS_OUTPUT
-		syscall_write(STDERR, "[ ERROR ] > Illegal read U64 from heap.\n", 40);
+		MSyscall_Fwrite(STDERR, "[ ERROR ] > Illegal read U64 from heap.\n", 40);
 		#endif
 
 		//spc err
-		syscall_exit(ERR__ILLEGAL_HEAP_RU64);
+		MSyscall_Fexit(ERR__ILLEGAL_HEAP_RU64);
 	}
 	return heap__unsafe_ru64(ir);
 }
@@ -678,59 +678,59 @@ u64 heap__safe_ru64(iref ir){
 
 
 //safe: write
-void heap__safe_wu8(iref ir, u8 e){
+void heap__safe_wu8(iref ir, GUu8 e){
 	if(ir.offset > heap__sz(ir.base)){
 
 		//optl output
 		#ifdef HEAP__ILLEGAL_ACCESS_OUTPUT
-		syscall_write(STDERR, "[ ERROR ] > Illegal write U8 from heap.\n", 40);
+		MSyscall_Fwrite(STDERR, "[ ERROR ] > Illegal write U8 from heap.\n", 40);
 		#endif
 
 		//spc err
-		syscall_exit(ERR__ILLEGAL_HEAP_WU8);
+		MSyscall_Fexit(ERR__ILLEGAL_HEAP_WU8);
 	}
 	return heap__unsafe_wu8(ir, e);
 }
 
-void heap__safe_wu16(iref ir, u16 e){
+void heap__safe_wu16(iref ir, GUu16 e){
 	if(ir.offset+2 > heap__sz(ir.base)){ //seems a bit stupid to make sizeof(u16), so used literal "2"
 
 		//optl output
 		#ifdef HEAP__ILLEGAL_ACCESS_OUTPUT
-		syscall_write(STDERR, "[ ERROR ] > Illegal write U16 from heap.\n", 41);
+		MSyscall_Fwrite(STDERR, "[ ERROR ] > Illegal write U16 from heap.\n", 41);
 		#endif
 
 		//spc err
-		syscall_exit(ERR__ILLEGAL_HEAP_WU16);
+		MSyscall_Fexit(ERR__ILLEGAL_HEAP_WU16);
 	}
 	return heap__unsafe_wu16(ir, e);
 }
 
-void heap__safe_wu32(iref ir, u32 e){
+void heap__safe_wu32(iref ir, GUu32 e){
 	if(ir.offset+4 > heap__sz(ir.base)){ //seems a bit stupid to make sizeof(u32), so used literal "4"
 
 		//optl output
 		#ifdef HEAP__ILLEGAL_ACCESS_OUTPUT
-		syscall_write(STDERR, "[ ERROR ] > Illegal write U32 from heap.\n", 41);
+		MSyscall_Fwrite(STDERR, "[ ERROR ] > Illegal write U32 from heap.\n", 41);
 		#endif
 
 		//spc err
-		syscall_exit(ERR__ILLEGAL_HEAP_WU32);
+		MSyscall_Fexit(ERR__ILLEGAL_HEAP_WU32);
 	}
 	return heap__unsafe_wu32(ir, e);
 }
 
 #ifdef ARCH64
-void heap__safe_wu64(iref ir, u64 e){
+void heap__safe_wu64(iref ir, GUu64 e){
 	if(ir.offset+8 > heap__sz(ir.base)){ //seems a bit stupid to make sizeof(u64), so used literal "8"
 
 		//optl output
 		#ifdef HEAP__ILLEGAL_ACCESS_OUTPUT
-		syscall_write(STDERR, "[ ERROR ] > Illegal write U64 from heap.\n", 41);
+		MSyscall_Fwrite(STDERR, "[ ERROR ] > Illegal write U64 from heap.\n", 41);
 		#endif
 
 		//spc err
-		syscall_exit(ERR__ILLEGAL_HEAP_WU64);
+		MSyscall_Fexit(ERR__ILLEGAL_HEAP_WU64);
 	}
 	return heap__unsafe_wu64(ir, e);
 }
@@ -739,13 +739,13 @@ void heap__safe_wu64(iref ir, u64 e){
 
 
 //variable size, unsafe: write
-void heap__unsafe_w(iref src, iref dst, ulng size){
-	for(ulng i=0; i < size; i++){ heap__unsafe_wu8(dst, heap__unsafe_ru8(src)); }
+void heap__unsafe_w(iref src, iref dst, GUumax size){
+	for(GUumax i=0; i < size; i++){ heap__unsafe_wu8(dst, heap__unsafe_ru8(src)); }
 }
 
 
 
 //variable size, safe: write
-void heap__safe_w(iref src, iref dst, ulng size){
-	for(ulng i=0; i < size; i++){ heap__safe_wu8(dst, heap__safe_ru8(src)); }
+void heap__safe_w(iref src, iref dst, GUumax size){
+	for(GUumax i=0; i < size; i++){ heap__safe_wu8(dst, heap__safe_ru8(src)); }
 }
