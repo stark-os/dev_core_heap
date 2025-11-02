@@ -1,66 +1,36 @@
-// ---------------- GENERIC TOOLS ----------------
-
-//padding tool
+//                              #define HEAP__BEST_FIT_BEST__NEIGHBOR_LIMIT_ENABLED
+#define HEAP__PAD_ALLOC_LEN_GUULNG
+#define HEAP__BEST_FIT_BET__THRESHOLD      8
+#define HEAP__BEST_FIT_BET__NEIGHBOR_LIMIT 18446744073709551616
+#define HEAP__ILLEGAL_ACCESS_OUTPUT //comment to disable output msg on illegal access
 GUumax padP2(GUumax n, GUumax p2);
-
-
-
-
-
-
-// ---------------- USER SCALE ----------------
-
-//size
+extern GUumax* heap__latestPC;
 GUumax heap__sz(ref r);
-
-//new - free
-ref  heap__new(GUumax len);
+ref heap__new(GUumax len);
 void heap__free(ref r);
-
-
-
-
-
-
-// ---------------- MEMORY ACCESS ----------------
-
-//fixed size, unsafe: read
 GUu8  heap__unsafe_ru8( iref ir);
 GUu16 heap__unsafe_ru16(iref ir);
 GUu32 heap__unsafe_ru32(iref ir);
 #ifdef ARCH64
 GUu64 heap__unsafe_ru64(iref ir);
 #endif
-
-//fixed size, unsafe: write
 void heap__unsafe_wu8( iref ir, GUu8  e);
 void heap__unsafe_wu16(iref ir, GUu16 e);
 void heap__unsafe_wu32(iref ir, GUu32 e);
 #ifdef ARCH64
 void heap__unsafe_wu64(iref ir, GUu64 e);
 #endif
-
-//fixed size, safe: read
-GUu8  heap__safe_ru8( iref ir);
+GUu8 heap__safe_ru8(iref ir);
 GUu16 heap__safe_ru16(iref ir);
 GUu32 heap__safe_ru32(iref ir);
 #ifdef ARCH64
 GUu64 heap__safe_ru64(iref ir);
 #endif
-
-//fixed size, safe: write
-void heap__safe_wu8( iref ir, GUu8  e);
+void heap__safe_wu8(iref ir, GUu8 e);
 void heap__safe_wu16(iref ir, GUu16 e);
 void heap__safe_wu32(iref ir, GUu32 e);
 #ifdef ARCH64
 void heap__safe_wu64(iref ir, GUu64 e);
 #endif
-
-//makes no sens to read on variable size:
-//  How can we know where to put the result if we don't know the size statically (at compile time) ?
-
-//variable size, unsafe: write
 void heap__unsafe_w(iref src, iref dst, GUumax size);
-
-//variable size, safe: write
 void heap__safe_w(iref src, iref dst, GUumax size);

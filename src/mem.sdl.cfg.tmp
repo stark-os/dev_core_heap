@@ -1,8 +1,0 @@
-// ---------------- DEFINITIONS ----------------
-
-//ref - iref <---- ref should mean "ptr which cannot have ath ope", it should only be assigned and overwritten completely, nothing more !
-typedef void* ref;
-typedef struct {
-	ref    base;
-	GUumax offset;
-} iref;
