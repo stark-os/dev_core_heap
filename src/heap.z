@@ -138,7 +138,7 @@
     | To decide whether to bet on locality or not, we will consider the available slots in our current PC where |
     | our data can be stored UNTIL A FIXED RANGE in bytes. For a certain size of data to be stored, we make a   |
     | difference between the "tiny bit bigger" slots and the "VERY MUCH BIGGER" slots.                          |
-    | This threshold is configurable via the constant HEAP__BEST_FIT_BET__THRESHOLD.                            |
+    | This threshold is configurable via the constant ^Heap.^BestFitBet.THRESHOLD.                              |
     |                                                                                                           |
     |                                                                                                           |
     |                                                                                                           |
@@ -147,7 +147,7 @@
     | If the data we want to store founds an available free slot IN CURRENT PC that is greater than what we     |
     | need, we will do as best-fit does, keeping track of this slot as potential fit, BUT, we also check        |
     | whether it is in the allowed range:                                                                       |
-    |                  availableChunkSize > size(dataToStore) + HEAP__BEST_FIT_BEST_THRESHOLD                   |
+    |                  availableChunkSize > size(dataToStore) + ^Heap.^BestFitBet.THRESHOLD                     |
     |                                                                                                           |
     | We keep both the best potential match that is IN THAT RANGE, and the best potential match OUT OF RANGE.   |
     | Then, after having these 2 potentials, we are now able to make a choice:                                  |
@@ -224,31 +224,29 @@
     |                                                                                                           |
     |            ============================ /!\ WARNING /!\ ================================                  |
     |          USING NEIGHBOR CHECK LIMIT UNEFFICIENTLY CAN CAUSE MORE DRAWBACKS THAN IMPROVEMENT !!!           |
-    |          BY DEFAULT AND TO AVOID MISUSE, THIS FEATURE IS DISABLED. UNCOMMENT THE LINE BELOW               |
-    |          TO ENABLE IT:                                                                                    |*/
-//                              #define HEAP__BEST_FIT_BEST__NEIGHBOR_LIMIT_ENABLED
-/*  |            =============================================================================                  |
+    |          BY DEFAULT AND TO AVOID MISUSE, THIS FEATURE IS DISABLED. EDIT THE PCPL CFG:                     |
+    |                                ^Heap.^BestFitBet.NEIGHBOR_LIMIT                                           |
+    |            =============================================================================                  |
     |                                                                                                           |
     |                                                                                                           |
     |                                                                                                           |
     | X] PC COMPOSITION                                                                                         |
     |                                                                                                           |
-    | Each PC starts with 2 GUumax of metadata:                                                                 |
+    | Each PC starts with 2 umax of metadata:                                                                   |
     ||
     ||
     ||
     =============================================================================================================
 */
 
-//pad every allocation request into a multiple of sizeof(GUumax)
-#define HEAP__PAD_ALLOC_LEN_GUULNG
+//module
+mod Heap {
 
-//best-fit-bet !WARNING: CHECK EXPLANATIONS ABOVE BEFORE MODIFYING
-#define HEAP__BEST_FIT_BET__THRESHOLD      8
-#define HEAP__BEST_FIT_BET__NEIGHBOR_LIMIT 18446744073709551616
-
-//memory access
-#define HEAP__ILLEGAL_ACCESS_OUTPUT //comment to disable output msg on illegal access
+	//best-fit-bet !WARNING: CHECK EXPLANATIONS ABOVE BEFORE MODIFYING
+	mod BestFitBet {
+		cst THRESHOLD      = 8l
+		cst NEIGHBOR_LIMIT = 18446744073709551616l
+	}
 
 
 
@@ -297,455 +295,454 @@
 
 
 
-// ---------------- GENERIC TOOLS ----------------
+	// ---------------- GENERIC TOOLS ----------------
 
-//padding tool, pads the given value to the next multiple of the power of 2:
-//    37,4096 => 4096
-//  2000,4096 => 4096
-//  4096,4096 => 4096
-//  4097,4096 => 8192
-//  8191,8192 => 8192
-//  ...
-GUumax padP2(GUumax n, GUumax p2) { return (n + p2 - 1) & ~(p2 - 1); }
-
-
+	//padding tool, pads the given value to the next multiple of the power of 2:
+	//    37,4096 => 4096
+	//  2000,4096 => 4096
+	//  4096,4096 => 4096
+	//  4097,4096 => 8192
+	//  8191,8192 => 8192
+	//  ...
+	pub fct padP2(umax n, umax p2) umax { ret (n + p2 - 1) & ~(p2 - 1) }
 
 
 
 
-// ---------------- PC SCALE ----------------
-
-//latest PC
-GUumax* heap__latestPC = GEnull;
 
 
+	// ---------------- PC SCALE ----------------
 
-//new - free PC
-static ref heap__newPC(GUumax len) {
+	//latest PC
+	pub ref[umax] latestPC = null
 
 
 
-	//STEP 1: ALLOCATE
+	//new - free PC
+	prv fct newPC(umax len) ref {
 
-	//need 5 additionnal GUumax than requested: 3 for PC metadata (prev PC + freeLstRef + PC size), 2 for allocated block metadata (len + freeLst ref)
-	GUumax PCLen = len + 5*sizeof(GUumax);
 
-	//pad len asked, and also deduce remaining space left (can be 0 btw)
-	GUumax paddedPCLen   = padP2(PCLen, MM__PAGE_SIZE);
-	GUumax remainingInPC = paddedPCLen - PCLen;
 
-	//allocate new page(s)
-	GUumax* pc = MSyscall_Fmmap(
-		GEnull,      //adr
-		paddedPCLen, //len
-		MM__PROT_READ   | MM__PROT_WRITE,    //prot
-		MM__MAP_PRIVATE | MM__MAP_ANONYMOUS, //flags
-		-1, //fd
-		0   //offset
-	);
+		//STEP 1: ALLOCATE
 
-	//system refuses => stop program
-	if(pc == MM__MAP_FAILED){
-		MSyscall_Fwrite(STDERR, "[ ERROR ] > Unable to allocate more memory for process.", 59);
-		MSyscall_Fexit(EXIT__SYSTEM_REFUSE_ALLOC);
+		//need 5 additionnal umax than requested: 3 for PC metadata (prev PC + freeLstRef + PC size), 2 for allocated block metadata (len + freeLst ref)
+		umax PCLen = len + 5*#umax
+
+		//pad len asked, and also deduce remaining space left (can be 0 btw)
+		paddedPCLen   = padP2(PCLen, ^MM.PAGE_SIZE)
+		remainingInPC = paddedPCLen - PCLen
+
+		//allocate new page(s)
+		ref[umax] pc = ^Syscall.mmap(
+			null,        //adr
+			paddedPCLen, //len
+			^MM.PROT_READ   | ^MM.PROT_WRITE,    //prot
+			^MM.MAP_PRIVATE | ^MM.MAP_ANONYMOUS, //flags
+			-1, //fd
+			0   //offset
+		)
+
+		//system refuses => stop program
+		if pc == ^MM.MAP_FAILED {
+			^Syscall.write(^IO.STDERR, "[ ERROR ] > Unable to allocate more memory for process.", 59)
+			^Syscall.exit(^Exit.SYSTEM_REFUSE_ALLOC)
+		}
+
+
+
+		//STEP 2: CHAIN
+
+		//save PC size also
+		pc[2] = paddedPCLen
+
+		//chain with other PCs: 1st umax of PC contains prev PC adr
+		pc[0]      = ^.latestPC $ umax
+		^.latestPC = pc                //update latestPC, now we are working on this new one in priority now
+
+
+
+		//STEP 3: SET INITIAL FREE LST (inside PC)
+
+		//too few space left => let's give the remaining to our data
+		ref[umax] firstFreeSlot = null
+		if remainingInPC < 2*#umax { len += remainingInPC } //<-------- !WARNING IF USING "^.PAD_ALLOC_LEN_umax": Will make "len" unpadded with sizeof(umax) if MM__PAGE_SIZE is not a multiple of size(umax).
+
+		//enough space => create 1st slot with it
+		els {
+			firstFreeSlot    = pc + 4 + len            //2 metadata for PC + 2 metadata for allocated block + len of allocated block
+			firstFreeSlot[0] = remainingInPC - 2*#umax //slot size (available space - 2 metadata umax for the potential new block to be set here)
+			firstFreeSlot[1] = null $ umax             //next slot adr (none here)
+		}
+
+		//set initial freeLst
+		pc[1] = firstFreeSlot$umax
+
+		//set allocated region
+		pc[3] = len         //size            as 1st umax in allocated chunk (4th umax in PC)
+		pc[4] = (pc+1)$umax //freeLstHead ref as 2nd umax in allocated chunk (5th umax in PC)
+		ret pc+5            //adr             as 3rd umax in allocated chunk (6th umax in PC)
+	}
+
+	prv fct freePC(ref adr, umax len) {
+		if(^Syscall.munmap(adr, len) == -1){
+			^Syscall.write(^IO.STDERR, "[ ERROR ] > Unable to de-allocate memory from process.", 54)
+			^Syscall.exit(^Exit.SYSTEM_REFUSE_FREE)
+		}
 	}
 
 
 
-	//STEP 2: CHAIN
-
-	//save PC size also
-	pc[2] = paddedPCLen;
-
-	//chain with other PCs: 1st GUumax of PC contains prev PC adr
-	pc[0]          = (GUumax)heap__latestPC;
-	heap__latestPC = pc;                   //update latestPC, now we are working on this new one in priority now
 
 
 
-	//STEP 3: SET INITIAL FREE LST (inside PC)
+	// ---------------- USER SCALE ----------------
 
-	//too few space left => let's give the remaining to our data
-	GUumax* firstFreeSlot = GEnull;
-	if(remainingInPC < 2*sizeof(GUumax)){ len += remainingInPC; } //<-------- !WARNING IF USING "HEAP__PAD_ALLOC_LEN_GUumax": Will make "len" unpadded with sizeof(GUumax) if MM__PAGE_SIZE is not a multiple of size(GUumax).
+	//size
+	pub fct sz(ref r) umax { ret (r$ref[umax] - 2)[0] }
 
-	//enough space => create 1st slot with it
-	else{
-		firstFreeSlot    = pc + 4 + len;                   //2 metadata for PC + 2 metadata for allocated block + len of allocated block
-		firstFreeSlot[0] = remainingInPC - 2*sizeof(GUumax); //slot size (available space - 2 metadata GUumax for the potential new block to be set here)
-		firstFreeSlot[1] = (GUumax)GEnull;                     //next slot adr (none here)
+
+
+	//new - free
+	pub new(umax len) ref {
+
+		//0 bytes to allocate => silent err
+		if !len { ret null }
+
+		#CFG HEAP__PAD_ALLOC_UMAX{
+			//padding to only multiple of umax
+			len = padP2(len, #umax)
+		}#!CFG HEAP__PAD_ALLOC_UMAX {
+			//at least sizeof(umax) bytes required to allocate
+			if len < #umax { len = #umax }
+		}
+
+		//potential matches: IN RANGE
+		ref[umax] bestPtl_inRange_prevRef = null;
+		ref[umax] bestPtl_inRange         = null;
+		umax      bestPtl_inRange_size    = 0;
+
+		//potential matches: OUT RANGE
+		ref[umax] bestPtl_outRange_prevRef     = null;
+		ref[umax] bestPtl_outRange             = null;
+		umax      bestPtl_outRange_size        = 0;
+		ref[umax] bestPtl_outRange_freeLstHead = null;
+
+		//neighbor limitation
+		#CFG HEAP__BEST_FIT_BEST__NEIGHBOR_LIMIT {
+		umax PCnbr = 0
+		}
+
+		//all researches at once
+		ref[umax] curPC = ^.latestPC //start by a LOCAL search
+		whi curPC != null {
+			ref[umax] curPC_freeLstHead   = curPC+1
+			ref[umax] curFreeSlot_prevRef = curPC_freeLstHead
+			whi true {
+
+				//as long as we have a free slot
+				if !curFreeSlot_prevRef { brk }
+
+				//cur free slot
+				ref[umax] curFreeSlot = curFreeSlot_prevRef[0] $ ref[umax]
+				umax      size        = curFreeSlot[0] //size of free block as 1st umax inside slot
+
+				//exact match => use it
+				if size == len {
+					curFreeSlot_prevRef[0] = curFreeSlot[1]         //disconnect slot from freeLst, <=> prevSlot->nxt = curSlot->nxt
+					curFreeSlot[1]         = curPC_freeLstHead$umax //set freeLstHead in newly allocated block
+					ret curFreeSlot+2                               //direct ret adr, no need to set the size (exact match)
+				}
+
+				//bigger => potential
+				if size > len {
+
+					//in-range => update best potential
+					if size < len + ^.^BestFitBet.THRESHOLD {
+						if size < bestPtl_inRange_size {
+							bestPtl_inRange_size    = size
+							bestPtl_inRange_prevRef = curFreeSlot_prevRef
+							bestPtl_inRange         = curFreeSlot
+						}
+					}
+
+					//out-range => update best potential
+					els {
+						if size < bestPtl_outRange_size {
+							bestPtl_outRange_size        = size
+							bestPtl_outRange_prevRef     = curFreeSlot_prevRef
+							bestPtl_outRange             = curFreeSlot
+							bestPtl_outRange_freeLstHead = curPC_freeLstHead
+						}
+					}
+				}
+
+				//next free slot adr as 2nd umax inside slot
+				curFreeSlot_prevRef = curFreeSlot[1]$ref[umax]
+			}
+
+			//in-range slot found in that page => use it
+			if bestPtl_inRange {
+				bestPtl_inRange_prevRef[0] = bestPtl_inRange[1]     //disconnect slot from freeLst, <=> prevSlot->nxt = bestPtl_inRangeSlot->nxt
+				bestPtl_inRange[0]         = bestPtl_inRange_size   //set size        in newly allocated block
+				bestPtl_inRange[1]         = curPC_freeLstHead$umax //set freeLstHead in newly allocated block
+				ret bestPtl_inRange+2
+			}
+
+			//go to previous PC (neighbor check)
+			curPC = curPC[0]$ref[umax]
+
+			//limit reached
+			#CFG HEAP__BEST_FIT_BEST__NEIGHBOR_LIMIT {
+			PCnbr += 1
+			if PCnbr == ^.^BestFitBet.NEIGHBOR_LIMIT { brk }
+			}
+		}
+
+		//still no exact match or in-range potential found => use out-range potential
+		if bestPtl_outRange {
+			bestPtl_outRange_prevRef[0] = bestPtl_outRange[1]               //disconnect from freeLst, <=> prevSlot->nxt = bestPtl_outRangeSlot->nxt
+			bestPtl_outRange[0]         = bestPtl_outRange_size             //set size        in newly allocated block
+			bestPtl_outRange[1]         = bestPtl_outRange_freeLstHead$umax //set freeLstHead in newly allocated block
+			ret bestPtl_outRange+2
+		}
+
+		//no even having any out-range potential => allocate new PC
+		ret ^.newPC(len)
 	}
 
-	//set initial freeLst
-	pc[1] = (GUumax)firstFreeSlot;
-
-	//set allocated region
-	pc[3] =          len; //size            as 1st GUumax in allocated chunk (4th GUumax in PC)
-	pc[4] = (GUumax)(pc+1); //freeLstHead ref as 2nd GUumax in allocated chunk (5th GUumax in PC)
-	return pc+5;          //adr             as 3rd GUumax in allocated chunk (6th GUumax in PC)
-}
-
-static void heap__freePC(ref adr, GUumax len) {
-	if(MSyscall_Fmunmap(adr, len) == -1){
-		MSyscall_Fwrite(STDERR, "[ ERROR ] > Unable to de-allocate memory from process.", 54);
-		MSyscall_Fexit(EXIT__SYSTEM_REFUSE_FREE);
-	}
-}
+	pub fct free(ref r){
+		ref[umax] freedSlot  = r$ref[umax] - 2
+		ref[umax] tgtFreeLst = freedSlot[1]$ref[umax]
 
 
 
+		//CASE 1: MERGING WITH PREV/NEXT SLOTS
 
+		//adr right after our block
+		ref[umax] followingAdr = freedSlot + freedSlot[0] + 2*#umax
 
+		//go over the whole freeLst for that PC
+		umax      totalFreeLstSize    = 0     //total size of every free slots (including metadata)
+		boo       mergedPrev          = false
+		boo       mergedNext          = false
+		ref[umax] prevNeedingUpdate   = null
+		ref[umax] curFreeSlot_prevRef = tgtFreeLst
+		whi true {
 
-// ---------------- USER SCALE ----------------
-
-//size
-GUumax heap__sz(ref r){ return (((GUumax*)r)-2)[0]; }
-
-
-
-//new - free
-ref heap__new(GUumax len){
-
-	//0 bytes to allocate => silent err
-	if(!len){ return GEnull; }
-
-	#ifdef HEAP__PAD_ALLOC_LEN_GUumax
-	//padding to only multiple of GUumax
-	len = padP2(len, sizeof(GUumax));
-	#else
-	//at least sizeof(GUumax) bytes required to allocate
-	if(len < sizeof(GUumax)) { len = sizeof(GUumax); }
-	#endif
-
-	//potential matches: IN RANGE
-	GUumax* bestPtl_inRange_prevRef = GEnull;
-	GUumax* bestPtl_inRange         = GEnull;
-	GUumax  bestPtl_inRange_size    = 0;
-
-	//potential matches: OUT RANGE
-	GUumax* bestPtl_outRange_prevRef     = GEnull;
-	GUumax* bestPtl_outRange             = GEnull;
-	GUumax  bestPtl_outRange_size        = 0;
-	GUumax* bestPtl_outRange_freeLstHead = GEnull;
-
-	//neighbor limitation
-	#ifdef HEAP__BEST_FIT_BEST__NEIGHBOR_LIMIT_ENABLED
-	GUumax PCnbr = 0;
-	#endif
-
-	//all researches at once
-	GUumax* curPC = heap__latestPC; //start by a LOCAL search
-	while(curPC != GEnull){
-		GUumax* curPC_freeLstHead   = curPC+1;
-		GUumax* curFreeSlot_prevRef = curPC_freeLstHead;
-		while(GEtrue){
-
-			//as long as we have a free slot
-			if(!curFreeSlot_prevRef){ break; }
+			//as long as we have anything in free lst
+			if !curFreeSlot_prevRef { brk }
 
 			//cur free slot
-			GUumax* curFreeSlot = (GUumax*)(curFreeSlot_prevRef[0]);
-			GUumax  size        = curFreeSlot[0]; //size of free block as 1st GUumax inside slot
+			ref[umax] curFreeSlot = curFreeSlot_prevRef$ref[umax][0]
+			totalFreeLstSize += curFreeSlot[0] = 2*#umax
 
-			//exact match => use it
-			if(size == len){
-				curFreeSlot_prevRef[0] = curFreeSlot[1];          //disconnect slot from freeLst, <=> prevSlot->nxt = curSlot->nxt
-				curFreeSlot[1]         = (GUumax)curPC_freeLstHead; //set freeLstHead in newly allocated block
-				return curFreeSlot+2;                             //direct return adr, no need to set the size (exact match)
+			//found free slot RIGHT BEFORE ours => merge them
+			if curFreeSlot + curFreeSlot[0] + 2*#umax == freedSlot {
+				curFreeSlot[0] += freedSlot[0] + 2*#umax //add our complete freedSlot as raw available data in curFreeSlot
+
+				//VERY IMPORTANT !!! If having both merge prev & after, freedSlot must be updated so that we will merge the prevMergedSlot with the next one.
+				freedSlot = curFreeSlot
+				if prevNeedingUpdate { prevNeedingUpdate[0] = curFreeSlot$umax } //also, the prevRef that has been updated must be updated once more to the even-before chunk (=current one) !
+
+				//optimization
+				if mergedNext { ret }
+				mergedPrev = true
 			}
 
-			//bigger => potential
-			if(size > len){
+			//found free slot RIGHT AFTER ours => merge them also
+			elf(followingAdr == curFreeSlot){
+				freedSlot[0]          += curFreeSlot[0] + 2*#umax //add complete curFreeSlot as raw available data in our freedSlot
+				freedSlot[1]           = curFreeSlot[1]           //also take the "next" field from curFreeSlot
+				curFreeSlot_prevRef[0] = freedSlot$umax           //<=> prevSlot->nxt = curSlot
 
-				//in-range => update best potential
-				if(size < len + HEAP__BEST_FIT_BET__THRESHOLD){
-					if(size < bestPtl_inRange_size){
-						bestPtl_inRange_size    = size;
-						bestPtl_inRange_prevRef = curFreeSlot_prevRef;
-						bestPtl_inRange         = curFreeSlot;
-					}
-				}
+				//keep aside the prevRef in case the following freeSlot is RIGHT BEFORE the freed one => we will have to update prevRef one more time
+				prevNeedingUpdate = curFreeSlot_prevRef;
 
-				//out-range => update best potential
-				else {
-					if(size < bestPtl_outRange_size){
-						bestPtl_outRange_size        = size;
-						bestPtl_outRange_prevRef     = curFreeSlot_prevRef;
-						bestPtl_outRange             = curFreeSlot;
-						bestPtl_outRange_freeLstHead = curPC_freeLstHead;
-					}
-				}
+				//optimization
+				if mergedPrev { ret }
+				mergedNext = true
 			}
 
-			//next free slot adr as 2nd GUumax inside slot
-			curFreeSlot_prevRef = (GUumax*)(curFreeSlot[1]);
+			//check next free slot
+			curFreeSlot_prevRef = curFreeSlot[1]$ref[umax]
 		}
 
-		//in-range slot found in that page => use it
-		if(bestPtl_inRange){
-			bestPtl_inRange_prevRef[0] = bestPtl_inRange[1];      //disconnect slot from freeLst, <=> prevSlot->nxt = bestPtl_inRangeSlot->nxt
-			bestPtl_inRange[0]         = bestPtl_inRange_size;    //set size        in newly allocated block
-			bestPtl_inRange[1]         = (GUumax)curPC_freeLstHead; //set freeLstHead in newly allocated block
-			return bestPtl_inRange+2;
+		//full PC has been freed => de-allocate memory
+		umax PCSize = (tgtFreeLst+1)[0]
+		if totalFreeLstSize + 3*#umax == PCSize { //3 umax of PC metadata + each free block occupies the whole PC
+			^.freePC(tgtFreeLst-1, PCSize)
+			ret
 		}
 
-		//go to previous PC (neighbor check)
-		curPC = (GUumax*)curPC[0];
+		//at least one merge => no need to go further
+		if mergedPrev || mergedNext { ret }
 
-		//limit reached
-		#ifdef HEAP__BEST_FIT_BEST__NEIGHBOR_LIMIT_ENABLED
-		PCnbr++;
-		if(PCnbr == HEAP__BEST_FIT_BEST__NEIGHBOR_LIMIT){ break; }
-		#endif
+
+
+		//CASE 2: CREATE INDEPENDANT SLOT (unmerged)
+
+		//set free slot data (size is unchanged)
+		freedSlot[1] = tgtFreeLst$umax //<=> curSlot->nxt = freeLstHead
+
+		//add slot to free lst, as 1st element of lst (which means it will be accessed in priority in further allocations btw)
+		tgtFreeLst[0] = freedSlot$umax //<=> freeLstHead = curSlot
 	}
 
-	//still no exact match or in-range potential found => use out-range potential
-	if(bestPtl_outRange){
-		bestPtl_outRange_prevRef[0] = bestPtl_outRange[1];                //disconnect from freeLst, <=> prevSlot->nxt = bestPtl_outRangeSlot->nxt
-		bestPtl_outRange[0]         = bestPtl_outRange_size;              //set size        in newly allocated block
-		bestPtl_outRange[1]         = (GUumax)bestPtl_outRange_freeLstHead; //set freeLstHead in newly allocated block
-		return bestPtl_outRange+2;
+
+
+
+
+
+	// ---------------- MEMORY ACCESS ----------------
+
+	//unsafe: read
+	pub fct unsafe_ru8( ref r, umax offset) u8  { ret   (r$ref[u8] + offset)[0]             }
+	pub fct unsafe_ru16(ref r, umax offset) u16 { ret ( (r$ref[u8] + offset) $ref[u16] )[0] }
+	pub fct unsafe_ru32(ref r, umax offset) u32 { ret ( (r$ref[u8] + offset) $ref[u32] )[0] }
+	#CFG ARCH64
+	pub fct unsafe_ru64(ref r, umax offset) u64 { ret ( (r$ref[u8] + offset) $ref[u64] )[0] }
 	}
 
-	//no even having any out-range potential => allocate new PC
-	return heap__newPC(len);
-}
 
-void heap__free(ref r){
-	GUumax* freedSlot  = ((GUumax*)r)-2;
-	GUumax* tgtFreeLst = (GUumax*)(freedSlot[1]);
+	//unsafe: write
+	pub fct unsafe_wu8( ref r, umax offset, u8  e){   (r$ref[u8] + offset)[0]             = e; }
+	pub fct unsafe_wu16(ref r, umax offset, u16 e){ ( (r$ref[u8] + offset) $ref[u16] )[0] = e; }
+	pub fct unsafe_wu32(ref r, umax offset, u32 e){ ( (r$ref[u8] + offset) $ref[u32] )[0] = e; }
+	#CFG ARCH64 {
+	pub fct unsafe_wu64(ref r, umax offset, u64 e){ ( (r$ref[u8] + offset) $ref[u64] )[0] = e; }
+	}
 
 
 
-	//CASE 1: MERGING WITH PREV/NEXT SLOTS
+	//safe: read
+	pub fct safe_ru8(ref r, umax offset) u8 {
+		if offset > ^.sz(r) {
 
-	//adr right after our block
-	GUumax* followingAdr = freedSlot + freedSlot[0] + 2*sizeof(GUumax);
+			//optl output
+			#CFG HEAP__ILLEGAL_ACCESS_OUTPUT {
+			^Syscall.write(^IO.STDERR, "[ ERROR ] > Illegal read U8 from heap.\n", 39)
+			}
 
-	//go over the whole freeLst for that PC
-	GUumax  totalFreeLstSize    = 0;     //total size of every free slots (including metadata)
-	GUboo   mergedPrev          = GEfalse;
-	GUboo   mergedNext          = GEfalse;
-	GUumax* prevNeedingUpdate   = GEnull;
-	GUumax* curFreeSlot_prevRef = tgtFreeLst;
-	while(GEtrue){
-
-		//as long as we have anything in free lst
-		if(!curFreeSlot_prevRef){ break; }
-
-		//cur free slot
-		GUumax* curFreeSlot = (GUumax*)(curFreeSlot_prevRef[0]);
-		totalFreeLstSize += curFreeSlot[0] = 2*sizeof(GUumax);
-
-		//found free slot RIGHT BEFORE ours => merge them
-		if(curFreeSlot + curFreeSlot[0] + 2*sizeof(GUumax) == freedSlot){
-			curFreeSlot[0] += freedSlot[0] + 2*sizeof(GUumax); //add our complete freedSlot as raw available data in curFreeSlot
-
-			//VERY IMPORTANT !!! If having both merge prev & after, freedSlot must be updated so that we will merge the prevMergedSlot with the next one.
-			freedSlot = curFreeSlot;
-			if(prevNeedingUpdate){ prevNeedingUpdate[0] = (GUumax)curFreeSlot; } //also, the prevRef that has been updated must be updated once more to the even-before chunk (=current one) !
-
-			//optimization
-			if(mergedNext){ return; }
-			mergedPrev = GEtrue;
+			//spc err
+			^Syscall.exit(^Exit.ILLEGAL_HEAP_RU8)
 		}
+		ret ^.unsafe_ru8(r, offset)
+	}
 
-		//found free slot RIGHT AFTER ours => merge them also
-		else if(followingAdr == curFreeSlot){
-			freedSlot[0]          += curFreeSlot[0] + 2*sizeof(GUumax); //add complete curFreeSlot as raw available data in our freedSlot
-			freedSlot[1]           = curFreeSlot[1];                  //also take the "next" field from curFreeSlot
-			curFreeSlot_prevRef[0] = (GUumax)freedSlot;                 //<=> prevSlot->nxt = curSlot
+	pub fct safe_ru16(ref r, umax offset) u16 {
+		if offset + #u16 > ^.sz(r) {
 
-			//keep aside the prevRef in case the following freeSlot is RIGHT BEFORE the freed one => we will have to update prevRef one more time
-			prevNeedingUpdate = curFreeSlot_prevRef;
+			//optl output
+			#CFG HEAP__ILLEGAL_ACCESS_OUTPUT {
+			^Syscall.write(^IO.STDERR, "[ ERROR ] > Illegal read U16 from heap.\n", 40)
+			}
 
-			//optimization
-			if(mergedPrev){ return; }
-			mergedNext = GEtrue;
+			//spc err
+			^Syscall.exit(^Exit.ILLEGAL_HEAP_RU16)
 		}
-
-		//check next free slot
-		curFreeSlot_prevRef = (GUumax*)(curFreeSlot[1]);
+		ret ^.unsafe_ru16(r, offset)
 	}
 
-	//full PC has been freed => de-allocate memory
-	GUumax PCSize = (tgtFreeLst+1)[0];
-	if(totalFreeLstSize + 3*sizeof(GUumax) == PCSize){ //3 GUumax of PC metadata + each free block occupies the whole PC
-		heap__freePC(tgtFreeLst-1, PCSize);
-		return;
+	pub fct ^.safe_ru32(ref r, umax offset) u32 {
+		if offset + #u32 > ^.sz(r) {
+
+			//optl output
+			#CFG HEAP__ILLEGAL_ACCESS_OUTPUT {
+			^Syscall.write(^IO.STDERR, "[ ERROR ] > Illegal read U32 from heap.\n", 40)
+			}
+
+			//spc err
+			^Syscall.exit(^Exit.ILLEGAL_HEAP_RU32)
+		}
+		ret ^.unsafe_ru32(r, offset)
 	}
 
-	//at least one merge => no need to go further
-	if(mergedPrev || mergedNext) { return; }
+	#CFG ARCH64{
+	u64 ^.safe_ru64(ref r, umax offset){
+		if offset + #u64 > ^.sz(r) {
+
+			//optl output
+			#CFG HEAP__ILLEGAL_ACCESS_OUTPUT {
+			^Syscall.write(^IO.STDERR, "[ ERROR ] > Illegal read U64 from heap.\n", 40)
+			}
+
+			//spc err
+			^Syscall.exit(^Exit.ILLEGAL_HEAP_RU64)
+		}
+		ret ^.unsafe_ru64(r, offset)
+	}}
 
 
 
-	//CASE 2: CREATE INDEPENDANT SLOT (unmerged)
+	//safe: write
+	pub fct safe_wu8(ref r, umax offset, u8 e){
+		if offset > ^.sz(r) {
 
-	//set free slot data (size is unchanged)
-	freedSlot[1] = (GUumax)(tgtFreeLst); //<=> curSlot->nxt = freeLstHead
+			//optl output
+			#CFG HEAP__ILLEGAL_ACCESS_OUTPUT {
+			^Syscall.write(^IO.STDERR, "[ ERROR ] > Illegal write U8 from heap.\n", 40)
+			}
 
-	//add slot to free lst, as 1st element of lst (which means it will be accessed in priority in further allocations btw)
-	tgtFreeLst[0] = (GUumax)(freedSlot); //<=> freeLstHead = curSlot
-}
-
-
-
-
-
-
-// ---------------- MEMORY ACCESS ----------------
-
-//unsafe: read
-GUu8  heap__unsafe_ru8( iref ir){ return ((GUu8*)(  ((GUu8*)ir.base)+ ir.offset ))[0]; }
-GUu16 heap__unsafe_ru16(iref ir){ return ((GUu16*)( ((GUu8*)ir.base)+ ir.offset ))[0]; }
-GUu32 heap__unsafe_ru32(iref ir){ return ((GUu32*)( ((GUu8*)ir.base)+ ir.offset ))[0]; }
-#ifdef ARCH64
-GUu64 heap__unsafe_ru64(iref ir){ return ((GUu64*)( ((GUu8*)ir.base)+ ir.offset ))[0]; }
-#endif
-
-
-//unsafe: write
-void heap__unsafe_wu8( iref ir, GUu8  e){ ((GUu8*)(  ((GUu8*)ir.base)+ ir.offset ))[0] = e; }
-void heap__unsafe_wu16(iref ir, GUu16 e){ ((GUu16*)( ((GUu8*)ir.base)+ ir.offset ))[0] = e; }
-void heap__unsafe_wu32(iref ir, GUu32 e){ ((GUu32*)( ((GUu8*)ir.base)+ ir.offset ))[0] = e; }
-#ifdef ARCH64
-void heap__unsafe_wu64(iref ir, GUu64 e){ ((GUu64*)( ((GUu8*)ir.base)+ ir.offset ))[0] = e; }
-#endif
-
-
-
-//safe: read
-GUu8 heap__safe_ru8(iref ir){
-	if(ir.offset > heap__sz(ir.base)){ //seems a bit stupid to make sizeof(GUu8), so used literal "1"
-
-		//optl output
-		#ifdef HEAP__ILLEGAL_ACCESS_OUTPUT
-		MSyscall_Fwrite(STDERR, "[ ERROR ] > Illegal read U8 from heap.\n", 39);
-		#endif
-
-		//spc err
-		MSyscall_Fexit(EXIT__ILLEGAL_HEAP_RU8);
+			//spc err
+			^Syscall.exit(^Exit.ILLEGAL_HEAP_WU8)
+		}
+		ret ^.unsafe_wu8(r, offset, e)
 	}
-	return heap__unsafe_ru8(ir);
-}
 
-GUu16 heap__safe_ru16(iref ir){
-	if(ir.offset+2 > heap__sz(ir.base)){ //seems a bit stupid to make sizeof(u16), so used literal "2"
+	pub fct safe_wu16(ref r, umax offset, u16 e){
+		if offset + #u16 > ^.sz(r) {
 
-		//optl output
-		#ifdef HEAP__ILLEGAL_ACCESS_OUTPUT
-		MSyscall_Fwrite(STDERR, "[ ERROR ] > Illegal read U16 from heap.\n", 40);
-		#endif
+			//optl output
+			#CFG HEAP__ILLEGAL_ACCESS_OUTPUT {
+			^Syscall.write(^IO.STDERR, "[ ERROR ] > Illegal write U16 from heap.\n", 41)
+			}
 
-		//spc err
-		MSyscall_Fexit(EXIT__ILLEGAL_HEAP_RU16);
+			//spc err
+			^Syscall.exit(^Exit.ILLEGAL_HEAP_WU16)
+		}
+		ret ^.unsafe_wu16(r, offset, e)
 	}
-	return heap__unsafe_ru16(ir);
-}
 
-GUu32 heap__safe_ru32(iref ir){
-	if(ir.offset+4 > heap__sz(ir.base)){ //seems a bit stupid to make sizeof(u32), so used literal "4"
+	pub fct safe_wu32(ref r, umax offset, u32 e){
+		if offset + #u32 > ^.sz(r) {
 
-		//optl output
-		#ifdef HEAP__ILLEGAL_ACCESS_OUTPUT
-		MSyscall_Fwrite(STDERR, "[ ERROR ] > Illegal read U32 from heap.\n", 40);
-		#endif
+			//optl output
+			#CFG HEAP__ILLEGAL_ACCESS_OUTPUT {
+			^Syscall.write(^IO.STDERR, "[ ERROR ] > Illegal write U32 from heap.\n", 41)
+			}
 
-		//spc err
-		MSyscall_Fexit(EXIT__ILLEGAL_HEAP_RU32);
+			//spc err
+			^Syscall.exit(^Exit.ILLEGAL_HEAP_WU32)
+		}
+		ret ^.unsafe_wu32(r, offset, e)
 	}
-	return heap__unsafe_ru32(ir);
-}
 
-#ifdef ARCH64
-GUu64 heap__safe_ru64(iref ir){
-	if(ir.offset+8 > heap__sz(ir.base)){ //seems a bit stupid to make sizeof(u64), so used literal "8"
+	#CFG ARCH64 {
+	pub fct safe_wu64(ref r, umax offset, u64 e){
+		if offset + #u64 > ^.sz(r) {
 
-		//optl output
-		#ifdef HEAP__ILLEGAL_ACCESS_OUTPUT
-		MSyscall_Fwrite(STDERR, "[ ERROR ] > Illegal read U64 from heap.\n", 40);
-		#endif
+			//optl output
+			#CFG HEAP__ILLEGAL_ACCESS_OUTPUT {
+			^Syscall.write(^IO.STDERR, "[ ERROR ] > Illegal write U64 from heap.\n", 41)
+			}
 
-		//spc err
-		MSyscall_Fexit(EXIT__ILLEGAL_HEAP_RU64);
+			//spc err
+			^Syscall.exit(^Exit.ILLEGAL_HEAP_WU64)
+		}
+		ret ^.unsafe_wu64(r, offset, e)
+	}}
+
+
+
+	//variable size, unsafe: write
+	pub fct unsafe_w(ref src, umax srcOffset, ref dst, umax dstOffset, umax size){
+		for i on size { ^.unsafe_wu8(dst, dstOffset, ^.unsafe_ru8(src, srcOffset)) }
 	}
-	return heap__unsafe_ru64(ir);
-}
-#endif
 
 
 
-//safe: write
-void heap__safe_wu8(iref ir, GUu8 e){
-	if(ir.offset > heap__sz(ir.base)){
-
-		//optl output
-		#ifdef HEAP__ILLEGAL_ACCESS_OUTPUT
-		MSyscall_Fwrite(STDERR, "[ ERROR ] > Illegal write U8 from heap.\n", 40);
-		#endif
-
-		//spc err
-		MSyscall_Fexit(EXIT__ILLEGAL_HEAP_WU8);
+	//variable size, safe: write
+	pub fct safe_w(ref src, umax srcOffset, ref dst, umax dstOffset, umax size){
+		for i on size { ^.safe_wu8(dst, dstOffset, ^.safe_ru8(src, srcOffset)) }
 	}
-	return heap__unsafe_wu8(ir, e);
-}
-
-void heap__safe_wu16(iref ir, GUu16 e){
-	if(ir.offset+2 > heap__sz(ir.base)){ //seems a bit stupid to make sizeof(u16), so used literal "2"
-
-		//optl output
-		#ifdef HEAP__ILLEGAL_ACCESS_OUTPUT
-		MSyscall_Fwrite(STDERR, "[ ERROR ] > Illegal write U16 from heap.\n", 41);
-		#endif
-
-		//spc err
-		MSyscall_Fexit(EXIT__ILLEGAL_HEAP_WU16);
-	}
-	return heap__unsafe_wu16(ir, e);
-}
-
-void heap__safe_wu32(iref ir, GUu32 e){
-	if(ir.offset+4 > heap__sz(ir.base)){ //seems a bit stupid to make sizeof(u32), so used literal "4"
-
-		//optl output
-		#ifdef HEAP__ILLEGAL_ACCESS_OUTPUT
-		MSyscall_Fwrite(STDERR, "[ ERROR ] > Illegal write U32 from heap.\n", 41);
-		#endif
-
-		//spc err
-		MSyscall_Fexit(EXIT__ILLEGAL_HEAP_WU32);
-	}
-	return heap__unsafe_wu32(ir, e);
-}
-
-#ifdef ARCH64
-void heap__safe_wu64(iref ir, GUu64 e){
-	if(ir.offset+8 > heap__sz(ir.base)){ //seems a bit stupid to make sizeof(u64), so used literal "8"
-
-		//optl output
-		#ifdef HEAP__ILLEGAL_ACCESS_OUTPUT
-		MSyscall_Fwrite(STDERR, "[ ERROR ] > Illegal write U64 from heap.\n", 41);
-		#endif
-
-		//spc err
-		MSyscall_Fexit(EXIT__ILLEGAL_HEAP_WU64);
-	}
-	return heap__unsafe_wu64(ir, e);
-}
-#endif
-
-
-
-//variable size, unsafe: write
-void heap__unsafe_w(iref src, iref dst, GUumax size){
-	for(GUumax i=0; i < size; i++){ heap__unsafe_wu8(dst, heap__unsafe_ru8(src)); }
-}
-
-
-
-//variable size, safe: write
-void heap__safe_w(iref src, iref dst, GUumax size){
-	for(GUumax i=0; i < size; i++){ heap__safe_wu8(dst, heap__safe_ru8(src)); }
 }
