@@ -7,29 +7,35 @@ mod MM{
 	cst PAGE_SIZE = 4096
 
 	//memory protection
-	cst PROT_NONE  = 0x00000000
-	cst PROT_READ  = 0x00000001
-	cst PROT_WRITE = 0x00000002
-	cst PROT_EXEC  = 0x00000004
+	cst PROT_NONE  = 0x00000000u
+	cst PROT_READ  = 0x00000001u
+	cst PROT_WRITE = 0x00000002u
+	cst PROT_EXEC  = 0x00000004u
 
 	//maps
-	cst MAP_SHARED          = 0x00000001
-	cst MAP_PRIVATE         = 0x00000002
-	cst MAP_SHARED_VALIDATE = 0x00000003
-	cst MAP_TYPE            = 0x0000000f
-	cst MAP_FIXED           = 0x00000010
-	cst MAP_ANONYMOUS       = 0x00000020
-	cst MAP_NORESERVE       = 0x00004000
-	cst MAP_GROWSDOWN       = 0x00000100
-	cst MAP_DENYWRITE       = 0x00000800
-	cst MAP_EXECUTABLE      = 0x00001000
-	cst MAP_LOCKED          = 0x00002000
-	cst MAP_POPULATE        = 0x00008000
-	cst MAP_NONBLOCK        = 0x00010000
-	cst MAP_STACK           = 0x00020000
-	cst MAP_HUGETLB         = 0x00040000
-	cst MAP_SYNC            = 0x00080000
-	cst MAP_FIXED_NOREPLACE = 0x00100000
-	cst MAP_FILE            = 0x00000000
+	cst MAP_SHARED          = 0x00000001u
+	cst MAP_PRIVATE         = 0x00000002u
+	cst MAP_SHARED_VALIDATE = 0x00000003u
+	cst MAP_TYPE            = 0x0000000fu
+	cst MAP_FIXED           = 0x00000010u
+	cst MAP_ANONYMOUS       = 0x00000020u
+	cst MAP_NORESERVE       = 0x00004000u
+	cst MAP_GROWSDOWN       = 0x00000100u
+	cst MAP_DENYWRITE       = 0x00000800u
+	cst MAP_EXECUTABLE      = 0x00001000u
+	cst MAP_LOCKED          = 0x00002000u
+	cst MAP_POPULATE        = 0x00008000u
+	cst MAP_NONBLOCK        = 0x00010000u
+	cst MAP_STACK           = 0x00020000u
+	cst MAP_HUGETLB         = 0x00040000u
+	cst MAP_SYNC            = 0x00080000u
+	cst MAP_FIXED_NOREPLACE = 0x00100000u
+	cst MAP_FILE            = 0x00000000u
 	cst MAP_FAILED          = 0xffffffff$ref //<=> -1
+}
+
+prv fct w(ref src, ref dst, smax len) {
+	d = dst$ref[s8]
+	s = src$ref[s8]
+	for i on len { d[i] = s[i] }
 }

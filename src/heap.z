@@ -281,7 +281,7 @@ mod Heap {
 
     LICENSE:
 
-    stark-os/dev/core/heap
+    stark-os/stk/zcore/heap
     Copyright (C) 2025 Sebastien SILVANO
 
     This library is free software; you can redistribute it and/or
@@ -416,7 +416,7 @@ mod Heap {
 	pub fct new(smax len) ref {
 
 		//0 bytes to allocate => silent err
-		if !len$boo { ret null }
+		if !len$bol { ret null }
 
 		#CFG HEAP__PAD_ALLOC_UMAX{
 			//padding to only multiple of smax
@@ -450,7 +450,7 @@ mod Heap {
 			whi true {
 
 				//as long as we have a free slot
-				if !curFreeSlot_prevRef { brk }
+				if !curFreeSlot_prevRef$bol { brk }
 
 				//cur free slot
 				ref[smax] curFreeSlot = curFreeSlot_prevRef[0] $ ref[smax]
@@ -534,14 +534,14 @@ mod Heap {
 
 		//go over the whole freeLst for that PC
 		smax      totalFreeLstSize    = 0     //total size of every free slots (including metadata)
-		boo       mergedPrev          = false
-		boo       mergedNext          = false
+		bol       mergedPrev          = false
+		bol       mergedNext          = false
 		ref[smax] prevNeedingUpdate   = null
 		ref[smax] curFreeSlot_prevRef = tgtFreeLst
 		whi true {
 
 			//as long as we have anything in free lst
-			if !curFreeSlot_prevRef { brk }
+			if !curFreeSlot_prevRef$bol { brk }
 
 			//cur free slot
 			ref[smax] curFreeSlot = curFreeSlot_prevRef$ref[smax][0]

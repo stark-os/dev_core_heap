@@ -1,6 +1,6 @@
 t0c Heap allocator library
 
-l N library for managing heap allocations.
+l N library for manipulating heap allocations.
 
 b
 b
@@ -11,7 +11,7 @@ b
 t1 Overview
 
 p This library gather some bare metal tools that allows to allocate \
-and free memory dynamically on linux systems, the same way as \
+and free memory dynamically on linux systems, a bit the same way as \
 malloc/free does in standard C libraries.
 
 p Of course, as it is the main goal of this library, it is completely \
@@ -29,7 +29,7 @@ t1 Compatibility
 
 t2 Target
 
-l Stark OS \lhttps://github.com/stark-os/dev/core/core\lcore\l.
+l Stark OS \lhttps://github.com/stark-os/stk/zcore/zcore\lzcore\l.
 
 
 t2 Build requirements
@@ -48,7 +48,7 @@ l Nothing to install.
 
 t2 Usage
 
-l See Stark OS \lhttps://github.com/stark-os/dev/core/core\lcore\l.
+l See Stark OS \lhttps://github.com/stark-os/stk/zcore/zcore\lzcore\l.
 
 
 t2 Uninstall
